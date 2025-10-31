@@ -1,12 +1,12 @@
-v# finpulse-ml
+# finpulse-ml
 Содержит все, что связано с машинным обучением и прогнозированием. 
 
 ## 1. Начало работы (делаем один раз)
 
 ```bash
 # Клонируем репозиторий
-git clone https://github.com/Fin-Pulse/finpulse-back.git
-cd finpulse-back
+git clone https://github.com/Fin-Pulse/finpulse-ml.git
+cd finpulse-ml
 
 # Проверяем что есть ветки
 git branch -a
