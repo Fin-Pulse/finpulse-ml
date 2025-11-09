@@ -49,9 +49,6 @@ class MLProcessor:
                     forecast_result['charts'] = {}
                 
                 success = db_manager.save_forecast(user_id, bank_client_id, forecast_result)
-                if success:
-                else:
-                    logger.error(f"Ошибка сохранения прогноза для {user_id}")
                     
             return forecast_result
             
