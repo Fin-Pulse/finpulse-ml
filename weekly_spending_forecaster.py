@@ -206,6 +206,7 @@ def get_weekly_forecast_api(transactions_data: Union[Dict, List, pd.DataFrame]) 
     try:
         
         forecaster = WeeklySpendingForecaster()
+
         
 
         if isinstance(transactions_data, dict):
@@ -214,6 +215,8 @@ def get_weekly_forecast_api(transactions_data: Union[Dict, List, pd.DataFrame]) 
             transactions_df = pd.DataFrame(transactions_data)
         else:
             transactions_df = transactions_data
+            
+        weekly_data = forecaster.create_weekly_data(transactions_df)
         
         if len(weekly_data) < forecaster.min_weeks:
             return {
