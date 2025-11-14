@@ -66,9 +66,11 @@ class MLProcessor:
         
         try:
             if 'category' in transactions_df.columns:
-                pie_chart_url = self.generate_pie_chart(user_id, transactions_df)
+                pie_chart_url, pie_chart_data = self.generate_pie_chart(user_id, transactions_df)
                 if pie_chart_url:
                     charts_data['pie_chart'] = pie_chart_url
+                if pie_chart_data:
+                    charts_data['pie_chart_data'] = pie_chart_data
             
         except Exception as e:
             logger.error(f"Ошибка генерации графиков: {e}")
@@ -89,7 +91,7 @@ class MLProcessor:
             ]
             
             if period_expenses.empty:
-                return None
+                return None, {}
             
             category_data = period_expenses.groupby('category')['absolute_amount'].sum().reset_index()
             category_data = category_data.sort_values('absolute_amount', ascending=False)
@@ -117,6 +119,15 @@ class MLProcessor:
             
             final_data = final_data.sort_values('absolute_amount', ascending=False)
             
+            # Создаем словарь с категориями и процентами для JSONB
+            category_dict = {}
+            for _, row in final_data.iterrows():
+                category_dict[row['category']] = {
+                    'percent': round(row['percent'], 2),
+                    'amount': round(row['absolute_amount'], 2)
+                }
+            
+            # Генерируем график
             fig = px.pie(
                 final_data,
                 values='absolute_amount',
@@ -135,12 +146,21 @@ class MLProcessor:
             fig.update_layout(
                 font_size=12,
                 showlegend=True,
-                height=500
+                legend=dict(
+                    orientation="v",
+                    yanchor="top",
+                    y=1,
+                    xanchor="left",
+                    x=1.1,
+                    font=dict(size=10)
+                ),
+                height=500,
+                margin=dict(r=150)
             )
             
             chart_url = self.minio_storage.save_plotly_chart(user_id, 'pie_chart', fig)
-            return chart_url
+            return chart_url, category_dict
             
         except Exception as e:
             logger.error(f"Ошибка генерации pie chart: {e}")
-            return None
+            return None, {}
