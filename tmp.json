@@ -1,0 +1,14 @@
+[{"score": 0.2482, 
+"maxAmount": "10000000.0", 
+"minAmount": "10000.0", 
+"productId": "deposit-reliable", 
+"termMonths": 12, 
+"description": "Классический вклад с гарантированной доходностью", 
+"matchReason": "подходит под ваш финансовый профиль", 
+"productName": "Вклад \"Надежный\"", 
+"productType": "deposit", 
+"interestRate": "8.5", 
+"forecastAmount": 2211.005}, 
+{"score": 0.2482, "maxAmount": null, "minAmount": "50000.0", "productId": "prod-sbank-deposit-001", "termMonths": 12, "description": "Выгодная ставка", "matchReason": "подходит под ваш финансовый профиль", "productName": "Накопительный депозит", "productType": "deposit", "interestRate": "8.5", "forecastAmount": 2211.005}, {"score": 0.2482, "maxAmount": null, "minAmount": "50000.0", "productId": "prod-vbank-deposit-001", "termMonths": 12, "description": "Выгодная ставка", "matchReason": "подходит под ваш финансовый профиль", "productName": "Накопительный депозит", "productType": "deposit", "interestRate": "8.5", "forecastAmount": 2211.005}, {"score": 0.2482, "maxAmount": null, "minAmount": "50000.0", "productId": "prod-abank-deposit-001", "termMonths": 12, "description": "Выгодная ставка", "matchReason": "подходит под ваш финансовый профиль", "productName": "Накопительный депозит", "productType": "deposit", "interestRate": "8.5", "forecastAmount": 2211.005}] | 2025-11-18 07:24:17.334439
+(3 rows)
+
