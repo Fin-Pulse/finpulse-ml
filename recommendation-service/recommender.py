@@ -1,181 +1,204 @@
 import logging
 import numpy as np
 from typing import List, Dict, Any
+from dataclasses import dataclass, asdict
+import json
 
 logger = logging.getLogger(__name__)
 
-class ProductRecommender:
-    """
-    Класс для генерации рекомендаций финансовых продуктов.
-    Теперь сохраняет полные данные о продуктах для отображения пользователю.
-    """
+@dataclass
+class BankServiceRecommendation:
+    product: Dict[str, Any]
+    score: float
+    reasons: List[str]
+    suitability: str
+    product_id: str
     
+    def to_dict(self):
+        """Преобразование в словарь для сериализации"""
+        return {
+            'product': self.product,
+            'score': self.score,
+            'reasons': self.reasons,
+            'suitability': self.suitability,
+            'product_id': self.product_id
+        }
+
+class ProductRecommender:
     def __init__(self):
-        # Веса для разных типов продуктов
-        self.product_weights = {
-            'loan': {
-                'forecast_amount': 0.3,
-                'volatility': -0.2,
-                'trend': 0.4,
-                'min_amount_match': 0.2
-            },
-            'deposit': {
-                'forecast_amount': 0.4,
-                'volatility': 0.3,
-                'trend': -0.2,
-                'min_amount_match': 0.1
-            },
-            'card': {
-                'forecast_amount': 0.2,
-                'volatility': -0.1,
-                'trend': 0.3,
-                'min_amount_match': 0.15
-            }
+        self.z_score_thresholds = {'low_risk': -1.0, 'medium_risk': 1.0, 'high_risk': 2.0}
+    
+    def _calculate_z_score(self, forecast_data: Dict[str, Any]) -> float:
+        """Вычисляем Z-score"""
+        # ИСПРАВЛЕНИЕ: правильное получение forecast значения
+        forecast_val = forecast_data['forecast']  # Получаем числовое значение прогноза
+        mean = forecast_data['analysis']['statistics']['mean'] 
+        std = forecast_data['analysis']['statistics']['std'] 
+        
+        if std and std > 0:
+            return (forecast_val - mean) / std
+        return 0.0
+    
+    def _safe_lower(self, text: Any) -> str:
+        """Безопасное преобразование в нижний регистр"""
+        try:
+            if text is None:
+                return ""
+            return str(text).lower()
+        except:
+            return ""
+    
+    def _evaluate_product(self, product: Dict[str, Any], characteristics: Dict[str, Any]) -> Dict[str, Any]:
+        """Оцениваем один продукт"""
+        score = 0.0
+        reasons = []
+        
+        product_type = product['productType'] 
+        product_name = product['productName'] 
+        description = product['description'] 
+        
+        z_score = characteristics['z_score'] 
+        is_high_volatility = characteristics['is_high_volatility'] 
+        is_significant_increase = characteristics['is_significant_increase'] 
+        has_anomaly = characteristics['has_anomaly']
+        
+        # Базовые баллы за тип продукта
+        if any(word in product_type for word in ['deposit', 'вклад']):
+            score += 1.0
+            reasons.append("Сберегательный продукт")
+            
+        elif any(word in product_type for word in ['credit', 'loan', 'кредит']):
+            score += 1.0
+            reasons.append("Кредитный продукт")
+            
+        elif any(word in product_type for word in ['debit', 'card', 'дебет']):
+            score += 1.0
+            reasons.append("Платежный продукт")
+        
+        # Дополнительные баллы на основе Z-score
+        if z_score > 2.0:  # Очень высокие траты
+            if any(word in product_type for word in ['credit', 'loan']):
+                score += 2.0
+                reasons.append("Поможет с высокими расходами")
+                
+        elif z_score < -1.0:  # Низкие траты
+            if any(word in product_type for word in ['deposit', 'вклад']):
+                score += 2.0
+                reasons.append("Идеален для накоплений")
+                
+        elif -1.0 <= z_score <= 1.0:  # Нормальные траты
+            if any(word in product_type for word in ['debit', 'card']):
+                score += 1.5
+                reasons.append("Подходит для регулярных трат")
+        
+        # Учитываем дополнительные факторы
+        if is_high_volatility and any(word in product_type for word in ['debit', 'card']):
+            score += 1.0
+            reasons.append("Гибкое управление при нестабильности")
+            
+        if is_significant_increase and any(word in product_type for word in ['credit', 'loan']):
+            score += 1.5
+            reasons.append("Покрывает рост расходов")
+            
+        if has_anomaly and any(word in product_type for word in ['credit']):
+            score += 1.0
+            reasons.append("Резерв на непредвиденное")
+                
+        return {'score': score, 'reasons': reasons}
+    
+    def _analyze_forecast_characteristics(self, forecast_data: Dict[str, Any]) -> Dict[str, Any]:
+        """Анализируем характеристики прогноза с улучшенной обработкой"""
+        
+        z_score = self._calculate_z_score(forecast_data)
+        
+        insights = forecast_data['recommendations']['insights']
+        
+        has_anomaly = False
+        has_high_volatility = False
+        has_increase = False
+        
+        for insight in insights:
+            insight_type = self._safe_lower(insight.get('type', ''))
+            if 'anomalous' in insight_type or 'аномал' in insight_type:
+                has_anomaly = True
+            if 'high_volatility' in insight_type or 'волатильность' in insight_type:
+                has_high_volatility = True
+            if 'significant_increase' in insight_type or 'рост' in insight_type:
+                has_increase = True
+        
+        # ИСПРАВЛЕНИЕ: правильное получение change_pct
+        change_pct = forecast_data['re']['change_pct']
+        forecast_amount = forecast_data['forecast']
+        volatility = forecast_data['analysis']['volatility']
+
+        return {
+            'z_score': z_score,
+            'is_high_volatility': has_high_volatility,
+            'is_significant_increase': has_increase or (change_pct and change_pct > 100),
+            'has_anomaly': has_anomaly,
+            'forecast_amount': forecast_amount,
+            'change_percentage': change_pct,
+            'volatility': volatility
         }
     
-    def score_product(self, forecast: Dict[str, Any], product: Dict[str, Any]) -> float:
-        """
-        Вычисляет скор для одного продукта на основе прогноза пользователя.
-        """
+    def recommend(self, forecast_data: Dict[str, Any], products: List[Dict[str, Any]]) -> List[BankServiceRecommendation]:
+        """Основной метод рекомендаций"""
         try:
-            # Извлекаем данные прогноза
-            forecast_amount = forecast['forecastAmount']
-            volatility = forecast['analytics']['volatility']
-            trend = forecast['analytics']['long_term_trend']
-            change_pct = forecast['analytics']['change_pct']
+            characteristics = self._analyze_forecast_characteristics(forecast_data['result'])
+            recommendations = []
             
-            # Извлекаем данные продукта
-            product_type = product['productType']
-            interest_rate = float(product['interestRate']) if product['interestRate'] else 0.0
-            min_amount = float(product['minAmount']) if product['minAmount'] else 0.0
-            max_amount = float(product['maxAmount']) if product['maxAmount'] else float('inf')
+            for i, product in enumerate(products):
+                try:
+                    evaluation = self._evaluate_product(product, characteristics)
+                    recommendations.append(BankServiceRecommendation(
+                        product=product,
+                        score=evaluation['score'],
+                        reasons=evaluation['reasons'],
+                        suitability='medium',
+                        product_id=product['productId'] 
+                    ))
+                except Exception as e:
+                    print(f"⚠️ Ошибка при оценке продукта {i}: {e}")
+                    continue
             
-            # Получаем веса для типа продукта
-            weights = self.product_weights.get(product_type, {})
-            if not weights:
-                return 0.0
+            if recommendations:
+                scores = [r.score for r in recommendations if r.score > 0]
+                if scores:
+                    max_score = max(scores)
+                    for rec in recommendations:
+                        ratio = rec.score / max_score if max_score > 0 else 0
+                        if ratio >= 0.7:
+                            rec.suitability = 'high'
+                        elif ratio >= 0.4:
+                            rec.suitability = 'medium'
+                        else:
+                            rec.suitability = 'low'
             
-            score = 0.0
-            features_used = 0
+            # Сортируем по убыванию score
+            result = sorted(recommendations, key=lambda x: x.score, reverse=True)
             
-            # 1. Учет суммы прогноза
-            if 'forecast_amount' in weights:
-                amount_score = min(1.0, forecast_amount / 100000)
-                score += amount_score * weights['forecast_amount']
-                features_used += 1
+            # ФИЛЬТРАЦИЯ: оставляем только лучший продукт каждого типа
+            best_by_type = {}
+            for rec in result:
+                product_type = rec.product['productType']
+                # Если тип еще не встречался или текущий продукт имеет больший score
+                if product_type not in best_by_type or rec.score > best_by_type[product_type].score:
+                    best_by_type[product_type] = rec
             
-            # 2. Учет волатильности
-            if 'volatility' in weights:
-                vol_score = 1.0 - min(1.0, volatility / 200)
-                score += vol_score * weights['volatility']
-                features_used += 1
+            # Возвращаем только лучшие продукты каждого типа
+            filtered_result = list(best_by_type.values())
             
-            # 3. Учет тренда
-            if 'trend' in weights:
-                trend_score = trend / 1000
-                score += trend_score * weights['trend']
-                features_used += 1
+            # Сортируем результат по score (на всякий случай)
+            filtered_result = sorted(filtered_result, key=lambda x: x.score, reverse=True)
             
-            # 4. Проверка минимальной суммы
-            if 'min_amount_match' in weights and min_amount > 0:
-                if forecast_amount >= min_amount:
-                    score += weights['min_amount_match']
-                    features_used += 1
-            
-            # 5. Учет процентной ставки
-            if interest_rate > 0:
-                if product_type == 'loan':
-                    rate_score = 1.0 / (1.0 + interest_rate / 100)
-                else:
-                    rate_score = interest_rate / 100
-                score += rate_score * 0.1
-                features_used += 1
-            
-            # Нормализуем итоговый скор
-            if features_used > 0:
-                final_score = max(0.0, min(1.0, score))
-                return round(final_score, 4)
-            else:
-                return 0.0
-                
-        except Exception as e:
-            logger.error(f"Ошибка в score_product: {e}")
-            return 0.0
-    
-    def recommend(self, forecast: Dict[str, Any], products: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-        """
-        Основной метод генерации рекомендаций.
-        Теперь возвращает полные данные о продуктах.
-        """
-        try:
-            # Шаг 1: Вычисляем скор для каждого продукта и сохраняем полные данные
-            scored_products = []
-            for product in products:
-                score = self.score_product(forecast, product)
-                if score > 0.1:  # минимальный порог
-                    # Сохраняем полные данные о продукте + скор
-                    product_recommendation = {
-                        'productId': product['productId'],
-                        'score': score,
-                        'productType': product['productType'],
-                        'productName': product['productName'],
-                        'description': product['description'],
-                        'interestRate': product['interestRate'],
-                        'minAmount': product['minAmount'],
-                        'maxAmount': product['maxAmount'],
-                        'termMonths': product['termMonths'],
-                        # Дополнительные поля для UI
-                        'matchReason': self._get_match_reason(score, forecast, product),
-                        'forecastAmount': forecast['forecastAmount']  # для контекста
-                    }
-                    scored_products.append(product_recommendation)
-            
-            # Шаг 2: Убираем дубликаты по productId и сортируем по скору
-            unique_products = {}
-            for product in scored_products:
-                product_id = product['productId']
-                if product_id not in unique_products or product['score'] > unique_products[product_id]['score']:
-                    unique_products[product_id] = product
-            
-            # Шаг 3: Сортируем по скору (убывание) и берем топ-10
-            sorted_products = sorted(unique_products.values(), key=lambda x: x['score'], reverse=True)
-            top_recommendations = sorted_products[:10]
-            
-            logger.info(f"Сгенерировано {len(top_recommendations)} рекомендаций для {forecast['userId']}")
-            
-            return top_recommendations
+            print(f"Сформировано {len(filtered_result)} рекомендаций после фильтрации (было {len(result)})")
+            return filtered_result
             
         except Exception as e:
-            logger.error(f"Ошибка в recommend: {e}")
+            print(f"Критическая ошибка: {e}")
+            import traceback
+            traceback.print_exc()
             return []
-    
-    def _get_match_reason(self, score: float, forecast: Dict[str, Any], product: Dict[str, Any]) -> str:
-        """
-        Генерирует текстовое объяснение почему продукт рекомендован.
-        """
-        reasons = []
-        forecast_amount = forecast['forecastAmount']
-        product_type = product['productType']
-        
-        # Анализ суммы
-        min_amount = float(product['minAmount']) if product['minAmount'] else 0
-        if min_amount > 0 and forecast_amount >= min_amount:
-            reasons.append("подходит по минимальной сумме")
-        
-        # Анализ типа продукта и финансового профиля
-        if product_type == 'loan':
-            if forecast['analytics']['volatility'] < 50:
-                reasons.append("стабильные доходы подходят для кредита")
-            if forecast['analytics']['long_term_trend'] > 0:
-                reasons.append("положительная динамика доходов")
-                
-        elif product_type == 'deposit':
-            if forecast['analytics']['volatility'] > 70:
-                reasons.append("подходит для сбережений при нестабильных тратах")
-            if forecast_amount > 50000:
-                reasons.append("достаточная сумма для открытия вклада")
-        
-        return ", ".join(reasons) if reasons else "подходит под ваш финансовый профиль"
 
-# Глобальный экземпляр
+
 recommender = ProductRecommender()

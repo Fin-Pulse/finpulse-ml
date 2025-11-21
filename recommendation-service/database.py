@@ -17,7 +17,7 @@ class DatabaseManager:
             return None
     
     def ensure_table_exists(self):
-        """Создает таблицу если ее нет - ВСЕ ЕЩЕ НУЖНО"""
+        """Создает таблицу если ее нет"""
         conn = self.get_connection()
         if not conn:
             return False
@@ -45,7 +45,7 @@ class DatabaseManager:
                 conn.close()
     
     def get_products(self):
-        """Получает все активные продукты из bank_products - ТЕПЕРЬ ТОЛЬКО FALLBACK"""
+        """Получает все активные продукты из bank_products"""
         conn = self.get_connection()
         if not conn:
             return []
@@ -54,6 +54,7 @@ class DatabaseManager:
             cursor = conn.cursor()
             cursor.execute("""
                 SELECT 
+                    bank_id,
                     product_id,
                     product_type, 
                     product_name,
@@ -69,14 +70,15 @@ class DatabaseManager:
             products = []
             for row in cursor.fetchall():
                 products.append({
-                    'productId': row[0],           # product_id
-                    'productType': row[1],         # product_type
-                    'productName': row[2],         # product_name
-                    'description': row[3],         # description
-                    'interestRate': str(row[4]) if row[4] is not None else None,  # interest_rate
-                    'minAmount': str(row[5]) if row[5] is not None else None,     # min_amount
-                    'maxAmount': str(row[6]) if row[6] is not None else None,     # max_amount
-                    'termMonths': row[7]           # term_months
+                    'bank_id': row[0],
+                    'productId': row[1],           # product_id
+                    'productType': row[2],         # product_type
+                    'productName': row[3],         # product_name
+                    'description': row[4],         # description
+                    'interestRate': str(row[5]) if row[5] is not None else None,  # interest_rate
+                    'minAmount': str(row[6]) if row[6] is not None else None,     # min_amount
+                    'maxAmount': str(row[7]) if row[7] is not None else None,     # max_amount
+                    'termMonths': row[8]           # term_months
                 })
             
             logger.info(f"Загружено {len(products)} активных продуктов из bank_products")
@@ -89,17 +91,19 @@ class DatabaseManager:
                 conn.close()
     
     def save_recommendations(self, user_id, recommendations):
-        """Сохраняет рекомендации в БД - ВСЕ ЕЩЕ НУЖНО"""
+        """Сохраняет рекомендации в БД - ИСПРАВЛЕНА СЕРИАЛИЗАЦИЯ"""
         conn = self.get_connection()
         if not conn:
             return False
             
         try:
+            # Преобразуем объекты BankServiceRecommendation в словари
+            recommendations_dicts = [rec.to_dict() for rec in recommendations]
             cursor = conn.cursor()
             cursor.execute("""
                 INSERT INTO user_recommendations (user_id, recommendations)
                 VALUES (%s, %s)
-            """, (user_id, json.dumps(recommendations)))
+            """, (user_id, json.dumps(recommendations_dicts)))
             conn.commit()
             logger.info(f"Сохранены рекомендации для пользователя {user_id}")
             return True
@@ -111,7 +115,7 @@ class DatabaseManager:
                 conn.close()
     
     def get_recommendations(self, user_id):
-        """Получает рекомендации пользователя - ВСЕ ЕЩЕ НУЖНО ДЛЯ API"""
+        """Получает рекомендации пользователя"""
         conn = self.get_connection()
         if not conn:
             return None

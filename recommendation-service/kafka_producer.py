@@ -43,7 +43,7 @@ class RecommendationProducer:
             }
 
             future = self.producer.send(
-                KAFKA_TOPICS["recommendations_ready"],
+                KAFKA_TOPICS["recommendations"],
                 key=str(user_id),
                 value=event
             )

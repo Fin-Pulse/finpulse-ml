@@ -37,21 +37,30 @@ class ForecastConsumer:
             result = event['result']
             forecast_result = result['forecast']
             analysis = result['analysis']
+            meta = result['metadata']
             
             # Преобразуем в формат для рекомендатора
             forecast_data = {
                 "userId": event['userId'],
-                "forecastAmount": forecast_result['forecast'],
-                "confidence": {
-                    "min": forecast_result['confidence_interval'][0],
-                    "max": forecast_result['confidence_interval'][1]
-                },
-                "analytics": {
-                    "change_pct": forecast_result['change_pct'],
-                    "volatility": analysis.get('volatility', 0),
-                    "long_term_trend": analysis.get('trends', {}).get('long_term_trend', 0)
-                },
-                "categoriesForecast": {}  # Можно добавить из analysis если есть
+                "result": {
+                    "forecast": forecast_result['forecast'],  # значение прогноза
+                    "analysis": {
+                        "statistics": {
+                            "mean": analysis.get('mean', 0),  # среднее значение
+                            "std": analysis.get('std', 0)     # стандартное отклонение
+                        },
+                        "volatility": analysis.get('volatility', 0),
+                        "trends": {
+                            "long_term_trend": analysis.get('trends', {}).get('long_term_trend', 0)
+                        }
+                    },
+                    "recommendations": {
+                        "insights": result['recommendations']['insights']  # можно добавить аномалии из analysis если есть
+                    },
+                    "re": {
+                        "change_pct": forecast_result['change_pct']
+                    }
+                }
             }
             
             return forecast_data
@@ -90,7 +99,7 @@ class ForecastConsumer:
             db_manager.save_recommendations(user_id, recommendations)
             
             # Отправляем в Kafka
-            producer.send_recommendation(user_id, recommendations)
+            producer.send_recommendations_ready(user_id)
             
             logger.info(f"Обработан прогноз для {user_id}")
             
