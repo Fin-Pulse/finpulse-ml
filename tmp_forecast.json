@@ -1,0 +1,62 @@
+{
+  "userId": "521df266-b39c-438d-955f-09452df04a2e",
+  "bankClientId": "bank-client-id",
+  "forecastReady": true,
+  "timestamp": 1731917193000,
+  "result": {
+  "success": true, 
+  "analysis": {
+    "trends": {
+      "long_term_trend": 4.031705251270486, 
+      "short_term_trend_pct": -18.606222137143227}, 
+    "statistics": {
+      "max": 4100.86, 
+      "min": 558.34, 
+      "q25": 1550.145, 
+      "q75": 2731.1000000000004, 
+      "std": 1001.9341455208208, 
+      "mean": 2200.755909090909, 
+      "median": 2124.1800000000003, 
+      "period_weeks": 22}, 
+    "volatility": 45.52681837099786, 
+    "seasonality": {
+      "detected": true, 
+      "peak_month": 8, 
+      "monthly_pattern": {
+        "6": 2304.4, 
+        "7": 1717.35, 
+        "8": 3118.91, 
+        "9": 2213.236, 
+        "10": 1762.34, 
+        "11": 2552.96}
+      }, 
+    "last_week_deviation": 16.003778040726925
+  }, 
+  "forecast": {
+    "change": -341.9549999999999, 
+    "method": "robust_moving_average", 
+    "forecast": 2211.005, 
+    "last_week": 2552.96, 
+    "change_pct": -13.394451930308346, 
+    "confidence_interval": [1547.7035, 3141.922842654999]
+  }, 
+  "metadata": {
+    "data_quality_check": "passed",
+    "forecaster_version": "1.1", 
+    "outliers_processed": true}, 
+    "timestamp": "2025-11-18T07:24:09.500558", 
+    "next_steps": ["Запланируйте 2211 руб. на следующую неделю", "Подготовьте резерв до 3142 руб.", "Сравните фактические траты с прогнозом", "Обновите прогноз через неделю с новыми данными"], 
+    "data_period": {"end_date": "2025-11-03", "start_date": "2025-06-02", "total_weeks": 22}, 
+    "recommendations": {
+      "insights": [],
+      "financial_tips": {
+        "savings_goal": 220.07559090909092,
+        "monthly_estimate": 9529.273086363635, 
+        "recommended_reserve": 4401.511818181818}, 
+        "budget_planning": {
+          "safe_range": [1547.7035, 3141.922842654999],
+          "reserve_amount": 3141.922842654999, 
+          "recommended_budget": 2211.005}
+        }
+      }
+}

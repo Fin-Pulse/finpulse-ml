@@ -24,6 +24,7 @@ class DatabaseManager:
             return None
             
         try:
+            # УБЕДИТЕСЬ ЧТО НЕТ LIMIT
             query = """
                 SELECT 
                     t.booking_date as date,
@@ -32,29 +33,31 @@ class DatabaseManager:
                     t.is_expense,
                     t.transaction_information as description,
                     t.credit_debit_indicator,
-                    t.category
+                    t.category,
+                    t.external_transaction_id,  -- ДОБАВЬТЕ ДЛЯ ОТЛАДКИ
+                    t.account_id                -- ДОБАВЬТЕ ДЛЯ ОТЛАДКИ
                 FROM transactions t
                 WHERE t.bank_client_id = %s
-                ORDER BY t.booking_date DESC
-                LIMIT 1000
+                ORDER BY t.booking_date ASC
             """
             
             df = pd.read_sql_query(query, conn, params=[bank_client_id])
             
+            # ДЕТАЛЬНОЕ ЛОГИРОВАНИЕ
+            logger.info(f"✅ Загружено {len(df)} транзакций для bank_client_id {bank_client_id}")
+            if not df.empty:
+                logger.info(f"📅 Диапазон дат: от {df['date'].min()} до {df['date'].max()}")
+                logger.info(f"🏦 Уникальных account_id: {df['account_id'].nunique()}")
+                logger.info(f"🔑 Уникальных external_transaction_id: {df['external_transaction_id'].nunique()}")
+            
             df['date'] = pd.to_datetime(df['date'], errors='coerce')
             df = df.dropna(subset=['date'])
-            
-
             df = df.sort_values('date')
-            
-
-            expenses_count = df[df['is_expense'] == True].shape[0]
-            income_count = df[df['is_expense'] == False].shape[0]
             
             return df
             
         except Exception as e:
-            logger.error(f"Ошибка получения транзакций для {bank_client_id}: {e}")
+            logger.error(f"❌ Ошибка получения транзакций для {bank_client_id}: {e}")
             return None
         finally:
             if conn:

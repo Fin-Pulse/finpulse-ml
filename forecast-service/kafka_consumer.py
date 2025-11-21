@@ -37,7 +37,10 @@ class KafkaForecastConsumer:
             logger.warning(f"Некорректное сообщение в Kafka: {e}")
             return None
     
-    def publish_forecast_ready(self, user_id, bank_client_id, success=True, error=None):
+    def publish_forecast_ready(self, user_id, bank_client_id, result=None, success=True, error=None):
+        """
+        Публикует событие о готовности прогноза с полными данными
+        """
         try:
             if self.producer is None:
                 logger.warning("Kafka producer не инициализирован, пропускаем публикацию")
@@ -50,7 +53,10 @@ class KafkaForecastConsumer:
                 'timestamp': int(time.time() * 1000)
             }
             
-            if not success and error:
+            # ДОБАВЛЯЕМ ПОЛНЫЙ РЕЗУЛЬТАТ ПРОГНОЗА
+            if success and result is not None:
+                event['result'] = result
+            elif not success and error:
                 event['error'] = error
             
             future = self.producer.send(
@@ -60,6 +66,7 @@ class KafkaForecastConsumer:
             )
             
             future.get(timeout=10)
+            logger.info(f"Отправлен прогноз в Kafka для {user_id}")
             
         except Exception as e:
             logger.error(f"Ошибка публикации события о готовности прогноза: {e}")
@@ -80,7 +87,6 @@ class KafkaForecastConsumer:
                     continue
                     
                 try:
-                    
                     future = self.executor.submit(self.process_message, message)
                     future.add_done_callback(lambda f: self.consumer.commit())
                     
@@ -93,7 +99,6 @@ class KafkaForecastConsumer:
             raise
     
     def process_message(self, message):
-
         try:
             event_data = message.value
             user_id = event_data.get('userId')
@@ -105,10 +110,12 @@ class KafkaForecastConsumer:
                 if not bank_client_id:
                     return
             
+            # Получаем полный результат прогноза
             result = self.ml_processor.process_user_forecast(user_id, bank_client_id, self.db_manager, self)
             
             if result.get('success'):
-                self.publish_forecast_ready(user_id, bank_client_id, success=True)
+                # ПЕРЕДАЕМ ПОЛНЫЙ РЕЗУЛЬТАТ В KAFKA
+                self.publish_forecast_ready(user_id, bank_client_id, result, success=True)
             else:
                 logger.warning(f"Прогноз не создан для {user_id}: {result.get('error')}")
                 self.publish_forecast_ready(user_id, bank_client_id, success=False, error=result.get('error'))
