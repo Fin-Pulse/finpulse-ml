@@ -34,6 +34,7 @@ class RedisProductClient:
                             for product in products_list:
                                 if product.get('isActive', True):
                                     all_products.append({
+                                        'bank_id': product.get('bankId'),
                                         'productId': product.get('productId'),
                                         'productType': product.get('productType'),
                                         'productName': product.get('productName'),
